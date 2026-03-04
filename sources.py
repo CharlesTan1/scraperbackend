@@ -3,7 +3,6 @@ import requests
 import time
 from dotenv import load_dotenv
 
-# Load environment variables (for local development)
 load_dotenv()
 
 class SourceManager:
@@ -12,7 +11,7 @@ class SourceManager:
     def __init__(self):
         self.sources = [
             DestructoidSource(),
-            IGDBsource()      # Add more sources here in priority order
+            IGDBsource()
         ]
     
     def get_game_data(self, game_name, game_slug=None):
@@ -24,7 +23,7 @@ class SourceManager:
             'platforms': "Not Available",
             'developer': "Not Available",
             'publisher': "Not Available",
-            'sources_used': []   # track where each field came from
+            'sources_used': []
         }
         
         for source in self.sources:
@@ -39,7 +38,7 @@ class SourceManager:
                         aggregated['sources_used'].append({field: source.name})
             except Exception as e:
                 print(f"Error with {source.name}: {e}")
-            time.sleep(0.5)   # polite delay between sources
+            time.sleep(0.5)
         
         return aggregated
 
@@ -50,7 +49,6 @@ class DestructoidSource:
     def fetch(self, game_name, game_slug=None):
         if not game_slug:
             return None
-        # Reuse your existing scraper function
         from scraper import scrape_game_hub
         return scrape_game_hub(game_slug)
 
@@ -58,7 +56,6 @@ class DestructoidSource:
 class IGDBsource:
     """
     Fetches game data from IGDB API (requires Client ID and Secret)
-    Docs: https://api-docs.igdb.com/
     """
     name = "IGDB"
     
@@ -69,7 +66,6 @@ class IGDBsource:
         self.token_expires = 0
         
     def _get_access_token(self):
-        """Obtain or refresh access token"""
         if time.time() < self.token_expires:
             return self.token
         url = "https://id.twitch.tv/oauth2/token"
@@ -82,13 +78,12 @@ class IGDBsource:
         if resp.status_code == 200:
             data = resp.json()
             self.token = data['access_token']
-            self.token_expires = time.time() + data['expires_in'] - 60  # buffer
+            self.token_expires = time.time() + data['expires_in'] - 60
             return self.token
         else:
             raise Exception(f"Failed to get IGDB token: {resp.text}")
     
     def fetch(self, game_name, game_slug=None):
-        """Search IGDB by game name and return a dict with fields we need"""
         if not self.client_id or not self.client_secret:
             print("IGDB credentials missing")
             return None
@@ -100,9 +95,7 @@ class IGDBsource:
             'Accept': 'application/json'
         }
         
-        # Search for the game
         search_url = "https://api.igdb.com/v4/games"
-        # Use search endpoint first
         search_body = f'search "{game_name}"; fields name,first_release_date,platforms.name,involved_companies.company.name,summary; limit 1;'
         
         resp = requests.post(search_url, headers=headers, data=search_body)
@@ -122,22 +115,18 @@ class IGDBsource:
             'publisher': "Not Available"
         }
         
-        # Release date (timestamp to YYYY-MM-DD)
         if 'first_release_date' in game:
-            ts = game['first_release_date'] / 1000  # IGDB uses milliseconds
+            ts = game['first_release_date'] / 1000
             result['release_date'] = time.strftime('%Y-%m-%d', time.gmtime(ts))
         
-        # Summary as key features
         if 'summary' in game:
             summary = game['summary']
             result['key_features'] = summary[:200] + "..." if len(summary) > 200 else summary
         
-        # Platforms
         if 'platforms' in game:
             platforms = [p['name'] for p in game['platforms'] if 'name' in p]
-            result['platforms'] = ', '.join(platforms[:5])   # limit to 5
+            result['platforms'] = ', '.join(platforms[:5])
         
-        # Developer / Publisher (involved_companies)
         if 'involved_companies' in game:
             devs = []
             pubs = []
