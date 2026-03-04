@@ -55,17 +55,34 @@ def scrape_url():
 def health():
     return jsonify({'status': 'ok'})
 
-# DEBUG ENDPOINT – REMOVE AFTER TESTING
 @app.route('/api/debug/igdb', methods=['GET'])
 def debug_igdb():
     from sources import IGDBsource
     game = request.args.get('game', 'Baldur\'s Gate 3')
     slug = request.args.get('slug', 'baldurs-gate-3')
     ig = IGDBsource()
-    result = ig.fetch(game, slug)
+    
+    # Test token
+    token_status = "unknown"
+    try:
+        token = ig._get_access_token()
+        token_status = "success" if token else "failed"
+    except Exception as e:
+        token_status = f"error: {str(e)}"
+    
+    # Attempt fetch
+    result = None
+    fetch_error = None
+    try:
+        result = ig.fetch(game, slug)
+    except Exception as e:
+        fetch_error = str(e)
+    
     return jsonify({
         'game': game,
         'slug': slug,
+        'token_status': token_status,
+        'fetch_error': fetch_error,
         'result': result
     })
 

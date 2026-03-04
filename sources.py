@@ -89,18 +89,19 @@ class IGDBsource:
             'Accept': 'application/json'
         }
         
-        # Build search terms set
+        # Build search terms set (comprehensive)
         search_terms = set()
         
-        # 1. Original name
+        # Original name
         if game_name:
             search_terms.add(game_name)
         
-        # 2. Slug with hyphens replaced
+        # Slug with hyphens replaced
         if game_slug:
             search_terms.add(game_slug.replace('-', ' '))
+            search_terms.add(game_slug)  # keep hyphenated
         
-        # 3. Add apostrophe versions (e.g., "Baldurs" -> "Baldur's")
+        # Add apostrophe versions (e.g., "Baldurs" -> "Baldur's")
         for term in list(search_terms):
             words = term.split()
             for i, word in enumerate(words):
@@ -108,7 +109,7 @@ class IGDBsource:
                     candidate = word[:-1] + "'s" + " " + " ".join(words[i+1:])
                     search_terms.add(candidate.strip())
         
-        # 4. Convert numbers to Roman numerals and vice versa
+        # Convert numbers to Roman numerals and vice versa
         roman_map = {
             '1': 'I', '2': 'II', '3': 'III', '4': 'IV', '5': 'V',
             '6': 'VI', '7': 'VII', '8': 'VIII', '9': 'IX', '10': 'X'
@@ -120,16 +121,13 @@ class IGDBsource:
                 if f" {roman}" in term or term.endswith(f" {roman}"):
                     search_terms.add(term.replace(f" {roman}", f" {num}"))
         
-        # 5. Add slug as direct search (with hyphens)
-        if game_slug:
-            search_terms.add(game_slug)  # e.g., "baldurs-gate-3"
-        
-        # 6. Remove punctuation for another variation
+        # Remove punctuation for another variation
         for term in list(search_terms):
             no_punct = re.sub(r"[^\w\s]", "", term)
             if no_punct != term:
                 search_terms.add(no_punct)
         
+        # Log terms (will appear in Vercel logs)
         print(f"IGDB search terms for {game_name}: {list(search_terms)}")
         
         for term in search_terms:
@@ -142,6 +140,7 @@ class IGDBsource:
             if not games:
                 continue
             
+            # Take the first result (IGDB returns most relevant first)
             game = games[0]
             print(f"IGDB found: {game.get('name')}")
             
