@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import sys
 import os
@@ -10,13 +10,31 @@ app = Flask(__name__)
 CORS(app)
 
 @app.route('/api/scrape', methods=['GET'])
-def scrape_destructoid_menu():
-    """Return 10 games from Destructoid's menu (missing fields = Not Available)."""
+def scrape_homepage_menu():
+    """Hardcoded button – always scrapes the Destructoid homepage."""
     try:
-        slugs = scraper.get_game_slugs_from_menu()
+        slugs = scraper.get_game_slugs_from_homepage()
         games = []
         for slug in slugs:
-            game_data = scraper.scrape_game_hub(slug)
+            game_data = scraper.scrape_game_hub_with_fallback(slug)
+            games.append(game_data)
+        return jsonify(games)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scrape-from-url', methods=['POST'])
+def scrape_from_url():
+    """URL input – scrapes the menu from the provided Destructoid URL."""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        if not url:
+            return jsonify({'error': 'URL is required'}), 400
+
+        slugs = scraper.get_game_slugs_from_given_url(url)
+        games = []
+        for slug in slugs:
+            game_data = scraper.scrape_game_hub_with_fallback(slug)
             games.append(game_data)
         return jsonify(games)
     except Exception as e:
