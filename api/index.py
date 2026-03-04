@@ -15,7 +15,7 @@ CORS(app)
 
 source_manager = SourceManager()
 
-# ---------- Destructoid menu (with IGDB fusion) ----------
+# ---------- Destructoid menu (original) ----------
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
     try:
@@ -29,7 +29,7 @@ def scrape_destructoid_menu():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ---------- Generic URL scraping ----------
+# ---------- Single URL scraping (original) ----------
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
     try:
@@ -53,56 +53,47 @@ def scrape_url():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ---------- NEW: Scrape a listing page (e.g., Metacritic /game/) ----------
+@app.route('/api/scrape-list', methods=['POST'])
+def scrape_list():
+    """
+    Accepts a listing page URL, extracts up to 10 game links, and scrapes each game.
+    """
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        if not url:
+            return jsonify({'error': 'URL is required'}), 400
+
+        # Step 1: extract game links from the listing page
+        game_links = generic_scraper.extract_game_links_from_listing(url)
+        if not game_links:
+            return jsonify({'error': 'No game links found on the page'}), 404
+
+        # Step 2: scrape each game page
+        games = []
+        for link in game_links[:15]:  # grab a few extra in case some fail
+            game_data = generic_scraper.scrape_generic_game(link)
+            if game_data:
+                games.append(game_data)
+            if len(games) >= 10:
+                break
+
+        return jsonify(games)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ---------- Health check ----------
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
 
-# ---------- Debug: check environment variables ----------
+# ---------- Debug endpoints (optional) ----------
 @app.route('/api/debug/env', methods=['GET'])
 def debug_env():
     return jsonify({
         'IGDB_CLIENT_ID': 'present' if os.getenv('IGDB_CLIENT_ID') else 'missing',
         'IGDB_CLIENT_SECRET': 'present' if os.getenv('IGDB_CLIENT_SECRET') else 'missing'
-    })
-
-# ---------- Debug: test IGDB fetch ----------
-@app.route('/api/debug/igdb', methods=['GET'])
-def debug_igdb():
-    from sources import IGDBsource
-    game = request.args.get('game', 'Baldur\'s Gate 3')
-    slug = request.args.get('slug', 'baldurs-gate-3')
-    ig = IGDBsource()
-    
-    # Check environment variables
-    env_status = {
-        'IGDB_CLIENT_ID': 'present' if os.getenv('IGDB_CLIENT_ID') else 'missing',
-        'IGDB_CLIENT_SECRET': 'present' if os.getenv('IGDB_CLIENT_SECRET') else 'missing'
-    }
-    
-    # Test token
-    token_status = "unknown"
-    try:
-        token = ig._get_access_token()
-        token_status = "success" if token else "failed"
-    except Exception as e:
-        token_status = f"error: {str(e)}"
-    
-    # Attempt fetch
-    result = None
-    fetch_error = None
-    try:
-        result = ig.fetch(game, slug)
-    except Exception as e:
-        fetch_error = str(e)
-    
-    return jsonify({
-        'game': game,
-        'slug': slug,
-        'env_status': env_status,
-        'token_status': token_status,
-        'fetch_error': fetch_error,
-        'result': result
     })
 
 # ---------- Helper functions ----------
