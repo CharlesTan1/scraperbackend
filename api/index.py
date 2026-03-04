@@ -17,6 +17,7 @@ source_manager = SourceManager()
 
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
+    """Get 10 games from Destructoid menu, enriched with IGDB data."""
     try:
         slugs = scraper.get_game_slugs_from_menu()
         games = []
@@ -30,6 +31,7 @@ def scrape_destructoid_menu():
 
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
+    """Scrape any game URL using multi‑source fusion."""
     try:
         data = request.get_json()
         url = data.get('url')

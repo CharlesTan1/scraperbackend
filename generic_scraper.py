@@ -7,9 +7,6 @@ HEADERS = {
 }
 
 def scrape_generic_game(url):
-    """
-    Universal scraper that attempts to extract game information from any URL.
-    """
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code != 200:

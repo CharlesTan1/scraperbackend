@@ -89,40 +89,47 @@ class IGDBsource:
             'Accept': 'application/json'
         }
         
-        # Build a list of search terms (more variations)
+        # Build search terms set
         search_terms = set()
         
-        # Original name
+        # 1. Original name
         if game_name:
             search_terms.add(game_name)
         
-        # Slug with hyphens replaced
+        # 2. Slug with hyphens replaced
         if game_slug:
             search_terms.add(game_slug.replace('-', ' '))
         
-        # Name without any punctuation (for titles like "Baldur's Gate 3")
-        if game_name:
-            no_punct = re.sub(r"[^\w\s]", "", game_name)
-            search_terms.add(no_punct)
-        
-        # Try replacing "3" with "III" and vice versa
-        for term in list(search_terms):
-            if " 3" in term or term.endswith(" 3"):
-                term_iii = term.replace(" 3", " III")
-                search_terms.add(term_iii)
-            if " III" in term or term.endswith(" III"):
-                term_3 = term.replace(" III", " 3")
-                search_terms.add(term_3)
-        
-        # Try adding apostrophe where missing (e.g., "Baldurs" -> "Baldur's")
+        # 3. Add apostrophe versions (e.g., "Baldurs" -> "Baldur's")
         for term in list(search_terms):
             words = term.split()
             for i, word in enumerate(words):
-                if word.endswith('s') and len(word) > 3 and word[:-1] not in ["'s", "’s"]:
+                if word.endswith('s') and len(word) > 3 and not word.endswith("'s") and not word.endswith("’s"):
                     candidate = word[:-1] + "'s" + " " + " ".join(words[i+1:])
                     search_terms.add(candidate.strip())
         
-        # Log all terms being tried
+        # 4. Convert numbers to Roman numerals and vice versa
+        roman_map = {
+            '1': 'I', '2': 'II', '3': 'III', '4': 'IV', '5': 'V',
+            '6': 'VI', '7': 'VII', '8': 'VIII', '9': 'IX', '10': 'X'
+        }
+        for term in list(search_terms):
+            for num, roman in roman_map.items():
+                if f" {num}" in term or term.endswith(f" {num}"):
+                    search_terms.add(term.replace(f" {num}", f" {roman}"))
+                if f" {roman}" in term or term.endswith(f" {roman}"):
+                    search_terms.add(term.replace(f" {roman}", f" {num}"))
+        
+        # 5. Add slug as direct search (with hyphens)
+        if game_slug:
+            search_terms.add(game_slug)  # e.g., "baldurs-gate-3"
+        
+        # 6. Remove punctuation for another variation
+        for term in list(search_terms):
+            no_punct = re.sub(r"[^\w\s]", "", term)
+            if no_punct != term:
+                search_terms.add(no_punct)
+        
         print(f"IGDB search terms for {game_name}: {list(search_terms)}")
         
         for term in search_terms:
@@ -135,7 +142,6 @@ class IGDBsource:
             if not games:
                 continue
             
-            # Take the first result
             game = games[0]
             print(f"IGDB found: {game.get('name')}")
             

@@ -28,7 +28,6 @@ def get_game_slugs_from_menu():
     return slugs[:10]
 
 def find_field_after_label(soup, label):
-    """Helper to find text after a label (case‑insensitive)."""
     elem = soup.find(string=re.compile(r'^\s*' + re.escape(label) + r'\s*$', re.IGNORECASE))
     if not elem:
         elem = soup.find(string=re.compile(re.escape(label), re.IGNORECASE))
