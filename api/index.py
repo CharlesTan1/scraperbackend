@@ -62,6 +62,12 @@ def debug_igdb():
     slug = request.args.get('slug', 'baldurs-gate-3')
     ig = IGDBsource()
     
+    # Check environment variables (without revealing full secrets)
+    env_status = {
+        'IGDB_CLIENT_ID': 'present' if os.getenv('IGDB_CLIENT_ID') else 'missing',
+        'IGDB_CLIENT_SECRET': 'present' if os.getenv('IGDB_CLIENT_SECRET') else 'missing'
+    }
+    
     # Test token
     token_status = "unknown"
     try:
@@ -81,6 +87,7 @@ def debug_igdb():
     return jsonify({
         'game': game,
         'slug': slug,
+        'env_status': env_status,
         'token_status': token_status,
         'fetch_error': fetch_error,
         'result': result
