@@ -17,7 +17,6 @@ source_manager = SourceManager()
 
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
-    """Get 10 games from Destructoid menu, enriched with IGDB data."""
     try:
         slugs = scraper.get_game_slugs_from_menu()
         games = []
@@ -31,7 +30,6 @@ def scrape_destructoid_menu():
 
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
-    """Scrape any game URL using multi‑source fusion."""
     try:
         data = request.get_json()
         url = data.get('url')
@@ -56,6 +54,20 @@ def scrape_url():
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
+
+# DEBUG ENDPOINT – REMOVE AFTER TESTING
+@app.route('/api/debug/igdb', methods=['GET'])
+def debug_igdb():
+    from sources import IGDBsource
+    game = request.args.get('game', 'Baldur\'s Gate 3')
+    slug = request.args.get('slug', 'baldurs-gate-3')
+    ig = IGDBsource()
+    result = ig.fetch(game, slug)
+    return jsonify({
+        'game': game,
+        'slug': slug,
+        'result': result
+    })
 
 def detect_source(url):
     domain = urlparse(url).netloc.lower()
