@@ -5,7 +5,6 @@ import os
 import re
 from urllib.parse import urlparse
 
-# Add parent directory to path so we can import scraper modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import scraper
 import generic_scraper
@@ -16,23 +15,19 @@ CORS(app)
 
 source_manager = SourceManager()
 
-# ---------- Destructoid menu scraping (now with fusion) ----------
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
     try:
         slugs = scraper.get_game_slugs_from_menu()
         games = []
         for slug in slugs:
-            # Convert slug to a readable game name
             game_name = slug.replace('-', ' ').title()
-            # Use source manager to get data from Destructoid + IGDB
             game_data = source_manager.get_game_data(game_name, slug)
             games.append(game_data)
         return jsonify(games)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ---------- Generic URL input scraping (with fusion) ----------
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
     try:
@@ -41,18 +36,15 @@ def scrape_url():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
 
-        # Try to identify the game from the URL
         game_info = extract_game_info_from_url(url)
         
         if game_info and game_info.get('name'):
-            # Use source manager to aggregate data
             aggregated = source_manager.get_game_data(
                 game_info['name'],
                 game_info.get('slug')
             )
             return jsonify([aggregated])
         else:
-            # Fallback to generic scraper (no fusion)
             game_data = generic_scraper.scrape_generic_game(url)
             return jsonify([game_data])
             
@@ -70,7 +62,6 @@ def detect_source(url):
     return 'unknown'
 
 def extract_game_info_from_url(url):
-    """Try to extract game name and optional slug from the URL."""
     source = detect_source(url)
     if source == 'destructoid':
         slug = extract_destructoid_slug(url)
@@ -79,7 +70,6 @@ def extract_game_info_from_url(url):
                 'name': slug.replace('-', ' ').title(),
                 'slug': slug
             }
-    # Fallback: use the last part of the URL as game name
     path = urlparse(url).path.strip('/')
     if path:
         last_part = path.split('/')[-1]
