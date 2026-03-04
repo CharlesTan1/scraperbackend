@@ -15,6 +15,7 @@ CORS(app)
 
 source_manager = SourceManager()
 
+# ---------- Destructoid menu (with IGDB fusion) ----------
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
     try:
@@ -28,6 +29,7 @@ def scrape_destructoid_menu():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ---------- Generic URL scraping ----------
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
     try:
@@ -51,10 +53,20 @@ def scrape_url():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ---------- Health check ----------
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
 
+# ---------- Debug: check environment variables ----------
+@app.route('/api/debug/env', methods=['GET'])
+def debug_env():
+    return jsonify({
+        'IGDB_CLIENT_ID': 'present' if os.getenv('IGDB_CLIENT_ID') else 'missing',
+        'IGDB_CLIENT_SECRET': 'present' if os.getenv('IGDB_CLIENT_SECRET') else 'missing'
+    })
+
+# ---------- Debug: test IGDB fetch ----------
 @app.route('/api/debug/igdb', methods=['GET'])
 def debug_igdb():
     from sources import IGDBsource
@@ -62,7 +74,7 @@ def debug_igdb():
     slug = request.args.get('slug', 'baldurs-gate-3')
     ig = IGDBsource()
     
-    # Check environment variables (without revealing full secrets)
+    # Check environment variables
     env_status = {
         'IGDB_CLIENT_ID': 'present' if os.getenv('IGDB_CLIENT_ID') else 'missing',
         'IGDB_CLIENT_SECRET': 'present' if os.getenv('IGDB_CLIENT_SECRET') else 'missing'
@@ -93,6 +105,7 @@ def debug_igdb():
         'result': result
     })
 
+# ---------- Helper functions ----------
 def detect_source(url):
     domain = urlparse(url).netloc.lower()
     if 'destructoid.com' in domain:
