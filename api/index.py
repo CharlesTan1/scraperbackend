@@ -16,24 +16,12 @@ def health():
 @app.route('/api/scrape')
 def scrape_games():
     try:
-        # Get slugs from both sources
-        menu_slugs = scraper.get_game_slugs_from_menu()
-        tags_slugs = scraper.get_game_slugs_from_tags()
-        # Combine and deduplicate
-        all_slugs = list(dict.fromkeys(menu_slugs + tags_slugs))
-        print(f"Total candidate slugs: {len(all_slugs)}")  # visible in Vercel logs
-
+        slugs = scraper.get_game_slugs_from_menu()
         games = []
-        for slug in all_slugs:
+        for slug in slugs:
             game_data = scraper.scrape_game_hub(slug)
-            if game_data:
-                games.append(game_data)
-                print(f"Added {slug}, total now {len(games)}")
-            else:
-                print(f"Skipped {slug} (no hub)")
-            if len(games) >= 10:
-                break
-
+            games.append(game_data)
+            # We already have exactly 10 slugs, so no need to break early
         return jsonify(games)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
