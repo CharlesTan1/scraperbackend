@@ -14,20 +14,26 @@ def _stringify(value):
     if isinstance(value, str):
         return value.strip() or "Not Available"
     if isinstance(value, (list, tuple)):
-        # Join list items, filtering out empty/None
-        items = [str(v).strip() for v in value if v and str(v).strip()]
+        # Process each item recursively, then join non-empty results
+        items = []
+        for item in value:
+            s = _stringify(item)
+            if s and s != "Not Available":
+                items.append(s)
         return ', '.join(items) if items else "Not Available"
     if isinstance(value, dict):
-        # Try common keys
-        for key in ['name', 'text', 'value']:
-            if key in value and value[key]:
-                return str(value[key]).strip()
-        # Fallback: return first non‑empty string value
+        # Try common keys for name
+        if 'name' in value and value['name']:
+            return str(value['name']).strip()
+        # If there's a 'text' field (for some schemas)
+        if 'text' in value and value['text']:
+            return str(value['text']).strip()
+        # Fallback: try to find any string value
         for k, v in value.items():
             if v and isinstance(v, str):
                 return v.strip()
         return "Not Available"
-    # Convert other types to string
+    # Convert other types (int, float, etc.) to string
     s = str(value).strip()
     return s if s else "Not Available"
 
