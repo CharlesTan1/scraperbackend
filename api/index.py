@@ -5,14 +5,15 @@ import os
 import re
 from urllib.parse import urlparse
 
+# Add parent directory to path so we can import scraper modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import scraper
-import generic_scraper  # We'll create this new module
+import generic_scraper
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Allow requests from your GitHub Pages domain
 
-# Mode 1: Destructoid menu scraping (your existing feature)
+# ---------- Destructoid menu scraping (original feature) ----------
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
     try:
@@ -25,60 +26,44 @@ def scrape_destructoid_menu():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Mode 2: Generic URL input - scrape any game page
+# ---------- Generic URL input scraping (new feature) ----------
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
     try:
         data = request.get_json()
         url = data.get('url')
-        
         if not url:
             return jsonify({'error': 'URL is required'}), 400
-        
-        # Detect which website this is
+
         source = detect_source(url)
-        
-        # Route to appropriate scraper
         if source == 'destructoid':
-            # Extract slug from Destructoid URL
             slug = extract_destructoid_slug(url)
-            game_data = scraper.scrape_game_hub(slug)
+            if slug:
+                game_data = scraper.scrape_game_hub(slug)
+            else:
+                game_data = generic_scraper.scrape_generic_game(url)
         else:
-            # Use generic scraper for unknown sites
             game_data = generic_scraper.scrape_generic_game(url)
-        
-        return jsonify([game_data])  # Return as array for consistency
-    
+
+        return jsonify([game_data])  # return as array for consistency
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Health check endpoint
+# ---------- Health check ----------
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
 
 def detect_source(url):
-    """Identify which website the URL belongs to"""
     domain = urlparse(url).netloc.lower()
-    
     if 'destructoid.com' in domain:
         return 'destructoid'
-    elif 'ign.com' in domain:
-        return 'ign'
-    elif 'gamespot.com' in domain:
-        return 'gamespot'
-    elif 'metacritic.com' in domain:
-        return 'metacritic'
-    else:
-        return 'unknown'
+    # Add more sites here as you like
+    return 'unknown'
 
 def extract_destructoid_slug(url):
-    """Extract game slug from Destructoid URL"""
-    # Handle both /game-hub/slug/ and /tag/slug/ formats
     match = re.search(r'/(?:game-hub|tag)/([^/]+)/?', url)
-    if match:
-        return match.group(1)
-    return None
+    return match.group(1) if match else None
 
 if __name__ == '__main__':
     app.run(debug=True)
