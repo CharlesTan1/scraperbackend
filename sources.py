@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class SourceManager:
-    """Aggregates data from multiple sources with priority fallback"""
-    
     def __init__(self):
         self.sources = [
             DestructoidSource(),
@@ -15,7 +13,6 @@ class SourceManager:
         ]
     
     def get_game_data(self, game_name, game_slug=None):
-        """Query all sources and merge results (first non-NA value wins)"""
         aggregated = {
             'title': game_name,
             'release_date': "Not Available",
@@ -31,7 +28,6 @@ class SourceManager:
                 data = source.fetch(game_name, game_slug)
                 if not data:
                     continue
-                # For each field, if we don't have it yet, take from this source
                 for field in ['release_date', 'key_features', 'platforms', 'developer', 'publisher']:
                     if aggregated[field] == "Not Available" and data.get(field) and data[field] != "Not Available":
                         aggregated[field] = data[field]
@@ -54,9 +50,6 @@ class DestructoidSource:
 
 
 class IGDBsource:
-    """
-    Fetches game data from IGDB API (requires Client ID and Secret)
-    """
     name = "IGDB"
     
     def __init__(self):
@@ -95,50 +88,55 @@ class IGDBsource:
             'Accept': 'application/json'
         }
         
-        search_url = "https://api.igdb.com/v4/games"
-        search_body = f'search "{game_name}"; fields name,first_release_date,platforms.name,involved_companies.company.name,summary; limit 1;'
+        search_terms = []
+        if game_slug:
+            search_terms.append(game_slug.replace('-', ' '))
+        search_terms.append(game_name)
         
-        resp = requests.post(search_url, headers=headers, data=search_body)
-        if resp.status_code != 200 or not resp.json():
-            return None
+        for term in search_terms:
+            search_body = f'search "{term}"; fields name,first_release_date,platforms.name,involved_companies.company.name,summary; limit 5;'
+            resp = requests.post("https://api.igdb.com/v4/games", headers=headers, data=search_body)
+            if resp.status_code != 200:
+                continue
+            games = resp.json()
+            if not games:
+                continue
+            
+            game = games[0]
+            result = {
+                'release_date': "Not Available",
+                'key_features': "Not Available",
+                'platforms': "Not Available",
+                'developer': "Not Available",
+                'publisher': "Not Available"
+            }
+            
+            if 'first_release_date' in game:
+                ts = game['first_release_date'] / 1000
+                result['release_date'] = time.strftime('%Y-%m-%d', time.gmtime(ts))
+            
+            if 'summary' in game:
+                summary = game['summary']
+                result['key_features'] = summary[:200] + "..." if len(summary) > 200 else summary
+            
+            if 'platforms' in game:
+                platforms = [p['name'] for p in game['platforms'] if 'name' in p]
+                result['platforms'] = ', '.join(platforms[:5])
+            
+            if 'involved_companies' in game:
+                devs = []
+                pubs = []
+                for ic in game['involved_companies']:
+                    if 'company' in ic and 'name' in ic['company']:
+                        if ic.get('developer'):
+                            devs.append(ic['company']['name'])
+                        if ic.get('publisher'):
+                            pubs.append(ic['company']['name'])
+                if devs:
+                    result['developer'] = ', '.join(devs)
+                if pubs:
+                    result['publisher'] = ', '.join(pubs)
+            
+            return result
         
-        games = resp.json()
-        if not games:
-            return None
-        
-        game = games[0]
-        result = {
-            'release_date': "Not Available",
-            'key_features': "Not Available",
-            'platforms': "Not Available",
-            'developer': "Not Available",
-            'publisher': "Not Available"
-        }
-        
-        if 'first_release_date' in game:
-            ts = game['first_release_date'] / 1000
-            result['release_date'] = time.strftime('%Y-%m-%d', time.gmtime(ts))
-        
-        if 'summary' in game:
-            summary = game['summary']
-            result['key_features'] = summary[:200] + "..." if len(summary) > 200 else summary
-        
-        if 'platforms' in game:
-            platforms = [p['name'] for p in game['platforms'] if 'name' in p]
-            result['platforms'] = ', '.join(platforms[:5])
-        
-        if 'involved_companies' in game:
-            devs = []
-            pubs = []
-            for ic in game['involved_companies']:
-                if 'company' in ic and 'name' in ic['company']:
-                    if ic.get('developer'):
-                        devs.append(ic['company']['name'])
-                    if ic.get('publisher'):
-                        pubs.append(ic['company']['name'])
-            if devs:
-                result['developer'] = ', '.join(devs)
-            if pubs:
-                result['publisher'] = ', '.join(pubs)
-        
-        return result
+        return None
