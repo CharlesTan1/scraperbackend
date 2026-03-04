@@ -1,6 +1,7 @@
 import os
 import requests
 import time
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -88,12 +89,44 @@ class IGDBsource:
             'Accept': 'application/json'
         }
         
-        search_terms = []
+        # Build a list of search terms (more variations)
+        search_terms = set()
+        
+        # Original name
+        if game_name:
+            search_terms.add(game_name)
+        
+        # Slug with hyphens replaced
         if game_slug:
-            search_terms.append(game_slug.replace('-', ' '))
-        search_terms.append(game_name)
+            search_terms.add(game_slug.replace('-', ' '))
+        
+        # Name without any punctuation (for titles like "Baldur's Gate 3")
+        if game_name:
+            no_punct = re.sub(r"[^\w\s]", "", game_name)
+            search_terms.add(no_punct)
+        
+        # Try replacing "3" with "III" and vice versa
+        for term in list(search_terms):
+            if " 3" in term or term.endswith(" 3"):
+                term_iii = term.replace(" 3", " III")
+                search_terms.add(term_iii)
+            if " III" in term or term.endswith(" III"):
+                term_3 = term.replace(" III", " 3")
+                search_terms.add(term_3)
+        
+        # Try adding apostrophe where missing (e.g., "Baldurs" -> "Baldur's")
+        for term in list(search_terms):
+            words = term.split()
+            for i, word in enumerate(words):
+                if word.endswith('s') and len(word) > 3 and word[:-1] not in ["'s", "’s"]:
+                    candidate = word[:-1] + "'s" + " " + " ".join(words[i+1:])
+                    search_terms.add(candidate.strip())
+        
+        # Log all terms being tried
+        print(f"IGDB search terms for {game_name}: {list(search_terms)}")
         
         for term in search_terms:
+            print(f"IGDB searching: {term}")
             search_body = f'search "{term}"; fields name,first_release_date,platforms.name,involved_companies.company.name,summary; limit 5;'
             resp = requests.post("https://api.igdb.com/v4/games", headers=headers, data=search_body)
             if resp.status_code != 200:
@@ -102,7 +135,10 @@ class IGDBsource:
             if not games:
                 continue
             
+            # Take the first result
             game = games[0]
+            print(f"IGDB found: {game.get('name')}")
+            
             result = {
                 'release_date': "Not Available",
                 'key_features': "Not Available",
@@ -139,4 +175,5 @@ class IGDBsource:
             
             return result
         
+        print(f"IGDB no match for {game_name} / {game_slug}")
         return None
