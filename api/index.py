@@ -5,6 +5,7 @@ import os
 import re
 from urllib.parse import urlparse
 
+# Add parent directory to path so we can import scraper modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import scraper
 import generic_scraper
@@ -15,20 +16,23 @@ CORS(app)
 
 source_manager = SourceManager()
 
-# Destructoid menu scraping (unchanged)
+# ---------- Destructoid menu scraping (now with fusion) ----------
 @app.route('/api/scrape', methods=['GET'])
 def scrape_destructoid_menu():
     try:
         slugs = scraper.get_game_slugs_from_menu()
         games = []
         for slug in slugs:
-            game_data = scraper.scrape_game_hub(slug)
+            # Convert slug to a readable game name
+            game_name = slug.replace('-', ' ').title()
+            # Use source manager to get data from Destructoid + IGDB
+            game_data = source_manager.get_game_data(game_name, slug)
             games.append(game_data)
         return jsonify(games)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Generic URL scraping with multi-source fusion
+# ---------- Generic URL input scraping (with fusion) ----------
 @app.route('/api/scrape-url', methods=['POST'])
 def scrape_url():
     try:
@@ -37,11 +41,11 @@ def scrape_url():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
 
-        # Step 1: Try to identify the game from the URL
+        # Try to identify the game from the URL
         game_info = extract_game_info_from_url(url)
         
         if game_info and game_info.get('name'):
-            # Step 2: Use source manager to aggregate data
+            # Use source manager to aggregate data
             aggregated = source_manager.get_game_data(
                 game_info['name'],
                 game_info.get('slug')
@@ -75,8 +79,7 @@ def extract_game_info_from_url(url):
                 'name': slug.replace('-', ' ').title(),
                 'slug': slug
             }
-    # For other sites, you could add specific extractors here
-    # As a fallback, just use the last part of the URL as game name
+    # Fallback: use the last part of the URL as game name
     path = urlparse(url).path.strip('/')
     if path:
         last_part = path.split('/')[-1]
