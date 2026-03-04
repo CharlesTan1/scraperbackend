@@ -16,7 +16,7 @@ def scrape_homepage_menu():
         slugs = scraper.get_game_slugs_from_homepage()
         games = []
         for slug in slugs:
-            game_data = scraper.scrape_game_hub_with_fallback(slug)
+            game_data = scraper.scrape_game_hub(slug)
             games.append(game_data)
         return jsonify(games)
     except Exception as e:
@@ -34,7 +34,7 @@ def scrape_from_url():
         slugs = scraper.get_game_slugs_from_given_url(url)
         games = []
         for slug in slugs:
-            game_data = scraper.scrape_game_hub_with_fallback(slug)
+            game_data = scraper.scrape_game_hub(slug)
             games.append(game_data)
         return jsonify(games)
     except Exception as e:

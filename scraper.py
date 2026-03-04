@@ -2,28 +2,21 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import re
-from wikipedia_scraper import scrape_from_wikipedia
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Cache-Control': 'max-age=0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 }
 
-# ---------- Menu extraction ----------
 def get_game_slugs_from_homepage():
     return get_game_slugs_from_given_url("https://www.destructoid.com")
 
 def get_game_slugs_from_given_url(url):
-    resp = requests.get(url, headers=HEADERS, timeout=15)
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"Failed to fetch {url}: {e}")
+        return []
     soup = BeautifulSoup(resp.text, 'lxml')
     menu_ul = soup.find('ul', id='destructoid-2025-games-nav')
     if not menu_ul:
@@ -40,7 +33,6 @@ def get_game_slugs_from_given_url(url):
             slugs.append(slug)
     return slugs[:10]
 
-# ---------- Field extraction helpers ----------
 def find_field_after_label(soup, label):
     elem = soup.find(string=re.compile(r'^\s*' + re.escape(label) + r'\s*$', re.IGNORECASE))
     if not elem:
@@ -56,7 +48,6 @@ def find_field_after_label(soup, label):
                 return next_elem.get_text(strip=True)
     return "Not Available"
 
-# ---------- Original Destructoid game hub scraper ----------
 def scrape_game_hub(slug):
     url = f"https://www.destructoid.com/game-hub/{slug}/"
     try:
@@ -117,20 +108,3 @@ def scrape_game_hub(slug):
         'publisher': publisher,
         'url': url
     }
-
-# ---------- Fallback function (Destructoid + Wikipedia) ----------
-def scrape_game_hub_with_fallback(slug):
-    data = scrape_game_hub(slug)
-
-    # Check if key fields are missing
-    missing_fields = [f for f in ['release_date', 'developer', 'publisher', 'platforms']
-                      if data.get(f) == "Not Available"]
-
-    if missing_fields:
-        game_name = slug.replace('-', ' ').title()
-        wiki_data = scrape_from_wikipedia(game_name)
-        if wiki_data:
-            for field in ['release_date', 'developer', 'publisher', 'platforms', 'key_features']:
-                if data.get(field) == "Not Available" and wiki_data.get(field):
-                    data[field] = wiki_data[field]
-    return data
