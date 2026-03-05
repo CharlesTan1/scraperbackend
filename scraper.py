@@ -54,12 +54,40 @@ def find_field_after_label(soup, label):
                     return next_elem.get_text(strip=True)
     return "Not Available"
 
+def extract_pros_as_key_features(soup):
+    """
+    Attempt to find a list of pros (often in a div with class 'pros' or a list).
+    Returns a formatted string or None.
+    """
+    # Look for common pros containers
+    pros_elem = soup.find('div', class_='pros') or soup.find('ul', class_='pros')
+    if not pros_elem:
+        # Try finding a heading "Pros" and then the next list
+        heading = soup.find(string=re.compile(r'^pros$', re.I))
+        if heading:
+            parent = heading.find_parent()
+            if parent:
+                next_list = parent.find_next('ul')
+                if next_list:
+                    pros_elem = next_list
+    if pros_elem:
+        items = pros_elem.find_all('li')
+        if items:
+            pros = [li.get_text(strip=True) for li in items if li.get_text(strip=True)]
+            if pros:
+                # Limit to first 3 pros and truncate length
+                features = '; '.join(pros[:3])
+                if len(features) > 200:
+                    features = features[:200] + '...'
+                return features
+    return None
+
 def scrape_game_hub(slug):
     url = f"https://www.destructoid.com/game-hub/{slug}/"
     default_result = {
         'title': slug.replace('-', ' ').title(),
         'release_date': "Not Available",
-        'description': "Not Available",
+        'key_features': "Not Available",
         'platforms': "Not Available",
         'developer': "Not Available",
         'publisher': "Not Available",
@@ -76,43 +104,52 @@ def scrape_game_hub(slug):
 
     soup = BeautifulSoup(resp.text, 'lxml')
 
+    # Title
     title_tag = soup.find('h1')
     title = title_tag.get_text(strip=True) if title_tag else default_result['title']
 
+    # Release Date
     release_date = find_field_after_label(soup, "Release Date")
     if release_date == "Not Available":
         time_tag = soup.find('time')
         if time_tag and time_tag.get('datetime'):
             release_date = time_tag['datetime']
 
-    # Description – look for the game-summary paragraph first
-    description = "Not Available"
-    summary_elem = soup.find('p', class_='game-summary')
-    if summary_elem:
-        desc = summary_elem.get_text(strip=True)
-        description = desc[:200] + "..." if len(desc) > 200 else desc
-    else:
-        # Fallback to meta description
-        meta_desc = soup.find('meta', {'name': 'description'})
-        if meta_desc and meta_desc.get('content'):
-            desc = meta_desc['content']
-            description = desc[:200] + "..." if len(desc) > 200 else desc
+    # Key Features – try pros list first
+    key_features = extract_pros_as_key_features(soup)
+    if not key_features:
+        # Fallback to game summary
+        summary_elem = soup.find('p', class_='game-summary')
+        if summary_elem:
+            desc = summary_elem.get_text(strip=True)
+            key_features = desc[:200] + "..." if len(desc) > 200 else desc
         else:
-            # Fallback to first paragraph in content area
-            content = soup.find('div', class_='entry-content') or soup.find('article')
-            if content:
-                p = content.find('p')
-                if p:
-                    text = p.get_text(strip=True)
-                    description = text[:200] + "..." if len(text) > 200 else text
+            # Fallback to meta description
+            meta_desc = soup.find('meta', {'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                desc = meta_desc['content']
+                key_features = desc[:200] + "..." if len(desc) > 200 else desc
+            else:
+                # Fallback to first paragraph in content
+                content = soup.find('div', class_='entry-content') or soup.find('article')
+                if content:
+                    p = content.find('p')
+                    if p:
+                        text = p.get_text(strip=True)
+                        key_features = text[:200] + "..." if len(text) > 200 else text
+    if not key_features:
+        key_features = "Not Available"
 
+    # Platforms
     platforms = find_field_after_label(soup, "Platforms")
     if platforms == "Not Available":
         platform_links = soup.find_all('a', href=re.compile(r'/tag/(pc|ps5|xbox|switch|nintendo|playstation)'))
         if platform_links:
             platforms = ', '.join(set(link.get_text(strip=True) for link in platform_links))
 
+    # Developer
     developer = find_field_after_label(soup, "Developer")
+    # Publisher
     publisher = find_field_after_label(soup, "Publisher")
 
     time.sleep(1)
@@ -120,7 +157,7 @@ def scrape_game_hub(slug):
     return {
         'title': title,
         'release_date': release_date,
-        'description': description,
+        'key_features': key_features,
         'platforms': platforms,
         'developer': developer,
         'publisher': publisher,
