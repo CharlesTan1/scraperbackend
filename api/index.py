@@ -11,7 +11,6 @@ CORS(app)
 
 @app.route('/api/scrape', methods=['GET'])
 def scrape_homepage_menu():
-    """Hardcoded button – always scrapes the Destructoid homepage."""
     try:
         slugs = scraper.get_game_slugs_from_homepage()
         games = []
@@ -24,13 +23,11 @@ def scrape_homepage_menu():
 
 @app.route('/api/scrape-from-url', methods=['POST'])
 def scrape_from_url():
-    """URL input – scrapes the menu from the provided Destructoid URL."""
     try:
         data = request.get_json()
         url = data.get('url')
         if not url:
             return jsonify({'error': 'URL is required'}), 400
-
         slugs = scraper.get_game_slugs_from_given_url(url)
         games = []
         for slug in slugs:

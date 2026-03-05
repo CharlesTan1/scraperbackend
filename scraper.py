@@ -55,14 +55,8 @@ def find_field_after_label(soup, label):
     return "Not Available"
 
 def extract_pros_as_key_features(soup):
-    """
-    Attempt to find a list of pros (often in a div with class 'pros' or a list).
-    Returns a formatted string or None.
-    """
-    # Look for common pros containers
     pros_elem = soup.find('div', class_='pros') or soup.find('ul', class_='pros')
     if not pros_elem:
-        # Try finding a heading "Pros" and then the next list
         heading = soup.find(string=re.compile(r'^pros$', re.I))
         if heading:
             parent = heading.find_parent()
@@ -75,7 +69,6 @@ def extract_pros_as_key_features(soup):
         if items:
             pros = [li.get_text(strip=True) for li in items if li.get_text(strip=True)]
             if pros:
-                # Limit to first 3 pros and truncate length
                 features = '; '.join(pros[:3])
                 if len(features) > 200:
                     features = features[:200] + '...'
@@ -115,7 +108,7 @@ def scrape_game_hub(slug):
         if time_tag and time_tag.get('datetime'):
             release_date = time_tag['datetime']
 
-    # Key Features – try pros list first
+    # Key Features – try pros first
     key_features = extract_pros_as_key_features(soup)
     if not key_features:
         # Fallback to game summary
@@ -137,6 +130,7 @@ def scrape_game_hub(slug):
                     if p:
                         text = p.get_text(strip=True)
                         key_features = text[:200] + "..." if len(text) > 200 else text
+    # Ensure we don't end up with empty string
     if not key_features:
         key_features = "Not Available"
 
@@ -147,9 +141,8 @@ def scrape_game_hub(slug):
         if platform_links:
             platforms = ', '.join(set(link.get_text(strip=True) for link in platform_links))
 
-    # Developer
+    # Developer & Publisher
     developer = find_field_after_label(soup, "Developer")
-    # Publisher
     publisher = find_field_after_label(soup, "Publisher")
 
     time.sleep(1)
