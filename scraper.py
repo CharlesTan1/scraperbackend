@@ -85,18 +85,26 @@ def scrape_game_hub(slug):
         if time_tag and time_tag.get('datetime'):
             release_date = time_tag['datetime']
 
+    # Description – look for the game-summary paragraph first
     description = "Not Available"
-    meta_desc = soup.find('meta', {'name': 'description'})
-    if meta_desc and meta_desc.get('content'):
-        desc = meta_desc['content']
+    summary_elem = soup.find('p', class_='game-summary')
+    if summary_elem:
+        desc = summary_elem.get_text(strip=True)
         description = desc[:200] + "..." if len(desc) > 200 else desc
     else:
-        content = soup.find('div', class_='entry-content') or soup.find('article')
-        if content:
-            p = content.find('p')
-            if p:
-                text = p.get_text(strip=True)
-                description = text[:200] + "..." if len(text) > 200 else text
+        # Fallback to meta description
+        meta_desc = soup.find('meta', {'name': 'description'})
+        if meta_desc and meta_desc.get('content'):
+            desc = meta_desc['content']
+            description = desc[:200] + "..." if len(desc) > 200 else desc
+        else:
+            # Fallback to first paragraph in content area
+            content = soup.find('div', class_='entry-content') or soup.find('article')
+            if content:
+                p = content.find('p')
+                if p:
+                    text = p.get_text(strip=True)
+                    description = text[:200] + "..." if len(text) > 200 else text
 
     platforms = find_field_after_label(soup, "Platforms")
     if platforms == "Not Available":
